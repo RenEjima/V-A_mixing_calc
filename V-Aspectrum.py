@@ -3,6 +3,8 @@ import numpy as np
 import math
 import random
 from scipy.optimize import curve_fit
+import seaborn as sns
+import pandas as pd
 
 #constants
 f_pi = 0.093 #pion's decay constant [GeV]
@@ -20,19 +22,27 @@ Sigma_AL = 0
 Sigma_AT = 0
 
 #density and temperature
-baryon_density = 1 #times of nuclear
+baryon_density = 1.0 #times of nuclear
 temperature = 0.010 #[GeV]
-
 
 #swith of chiral symmetry resotration
 withCSR = 0
 
 #see dilepton production rate at p
-atP = 1.0 #[GeV]
+atP = 1.5 #[GeV]
 
 def QCDsumruleMass(massVac):
     massMed = massVac*(1-0.034*baryon_density)
     return massMed
+
+def decayInsideRate(p):
+    a=13.44128233
+    b=-10.14421448
+    c=0.73734453
+    d=8.9882025
+    e=-0.80843066
+    f=0.11062088
+    return c*a**(b*p)+f*d**(e*p)
 
 #Info of Vector/Axial-vector meson
 gV = np.sqrt(2)/3*mass_phi**2/mass_rho**2*gRho
@@ -104,7 +114,7 @@ spectralFunction_vac = [0]*3000
 
 #without mixing
 c = 0 #[GeV]
-for p_MeV in range(1,2000): #Integrate dilepton production rate by momentum from 0 to 2GeV
+for p_MeV in range(1000,2000): #Integrate dilepton production rate by momentum from 0 to 2GeV
     p = p_MeV/1000 #convert from MeV to GeV
     s_MeV = np.arange(1,3001,1)   #range of s
     s = s_MeV/1000 #convert from MeV to GeV
@@ -127,9 +137,13 @@ for p_MeV in range(1,2000): #Integrate dilepton production rate by momentum from
     ImGv_T = ImVector_CurrentCurrentCorrelationFx_T(s,p)
     ImGv_T_omega = ImVector_CurrentCurrentCorrelationFx_T_Omega(s,p)
 
-    p_0_L = DispersionRelation_VL(p)
-    p_0_T = DispersionRelation_VT(p)
-    p_0_T_2 = DispersionRelation_AT(p)
+    #p_0_L = DispersionRelation_VL(p)
+    #p_0_T = DispersionRelation_VT(p)
+    #p_0_T_2 = DispersionRelation_AT(p)
+
+    p_0_L = np.sqrt(s+p**2)
+    p_0_T = np.sqrt(s+p**2)
+    p_0_T_2 = np.sqrt(s+p**2)
 
     dilepton_productionRate_L_noMix = alpha**2/(math.pi*s)*ImGv_L/(np.exp(p_0_L/temperature)-1)
     spectralFunction_L_noMix = spectralFunction_L_noMix+(dilepton_productionRate_L_noMix)/(2*p_0_L)
@@ -156,7 +170,7 @@ spectralFunction_T_omega_2 = [0]*3000
 #mixing strength
 c = 0.1*baryon_density #[GeV]
 
-for p_MeV in range(1,2000): #Integrate dilepton production rate by momentum from 0 to 2GeV
+for p_MeV in range(1000,2000): #Integrate dilepton production rate by momentum from 0 to 2GeV
     p = p_MeV/1000 #convert from MeV to GeV
     s_MeV = np.arange(1,3001,1)   #range of s
     s = s_MeV/1000 #convert from MeV to GeV
@@ -175,22 +189,20 @@ for p_MeV in range(1,2000): #Integrate dilepton production rate by momentum from
     ImGv_T = ImVector_CurrentCurrentCorrelationFx_T(s,p)
     ImGv_T_omega = ImVector_CurrentCurrentCorrelationFx_T_Omega(s,p)
 
-    p_0_L = DispersionRelation_VL(p)
-    p_0_T = DispersionRelation_VT(p)
-    p_0_T_2 = DispersionRelation_AT(p)
+    #p_0_L = DispersionRelation_VL(p)
+    #p_0_T = DispersionRelation_VT(p)
+    #p_0_T_2 = DispersionRelation_AT(p)
+
+    p_0_L = np.sqrt(s+p**2)
+    p_0_T = np.sqrt(s+p**2)
 
     dilepton_productionRate_L = alpha**2/(math.pi*s)*ImGv_L/(np.exp(p_0_L/temperature)-1)
+    bkg_L = alpha**2/(math.pi*s)/(np.exp(p_0_L/temperature)-1)
     spectralFunction_L = spectralFunction_L+(dilepton_productionRate_L)/(2*p_0_L)
+
     dilepton_productionRate_T = alpha**2/(math.pi*s)*ImGv_T/(np.exp(p_0_T/temperature)-1)
+    bkg_T = alpha**2/(math.pi*s)/(np.exp(p_0_T/temperature)-1)
     spectralFunction_T = spectralFunction_T+(dilepton_productionRate_T)/(2*p_0_T)
-    dilepton_productionRate_T_2 = alpha**2/(math.pi*s)*ImGv_T/(np.exp(p_0_T_2/temperature)-1)
-    spectralFunction_T_2 = spectralFunction_T_2+(dilepton_productionRate_T_2)/(2*p_0_T_2)
-
-    dilepton_productionRate_T_omega = alpha**2/(math.pi*s)*ImGv_T_omega/(np.exp(p_0_T/temperature)-1)
-    spectralFunction_T_omega = spectralFunction_T_omega+(dilepton_productionRate_T_omega)/(2*p_0_T)
-    dilepton_productionRate_T_omega_2 = alpha**2/(math.pi*s)*ImGv_T_omega/(np.exp(p_0_T_2/temperature)-1)
-    spectralFunction_T_omega_2 = spectralFunction_T_omega_2+(dilepton_productionRate_T_omega_2)/(2*p_0_T_2)
-
 
     if p==atP:
         fig, ax = plt.subplots()
@@ -206,16 +218,54 @@ for p_MeV in range(1,2000): #Integrate dilepton production rate by momentum from
         plt.show()
 
         fig, ax = plt.subplots()
-        ax.plot(np.sqrt(s), (dilepton_productionRate_L_noMix_save+2*dilepton_productionRate_T_noMix_save)/3, label="w/o V-A mixing")
         ax.plot(np.sqrt(s), dilepton_productionRate_L,label="Longitudinal")
-        ax.plot(np.sqrt(s), dilepton_productionRate_T,label="Transverse, +sign")
-        ax.plot(np.sqrt(s), dilepton_productionRate_T_2,label="Transverse, -sign")
-        ax.plot(np.sqrt(s), dilepton_productionRate_T_omega,label="Transverse, omega, +sign")
-        ax.plot(np.sqrt(s), dilepton_productionRate_T_omega_2,label="Transverse, omega, -sign")
-        ax.plot(np.sqrt(s), (dilepton_productionRate_L+2*(dilepton_productionRate_T))/3,label="Average, +sign")
-        ax.plot(np.sqrt(s), (dilepton_productionRate_L+2*(dilepton_productionRate_T_2))/3,label="Average, -sign")
-        ax.plot(np.sqrt(s), (dilepton_productionRate_L+2*(dilepton_productionRate_T_omega))/3,label="(L+2T)/3, omega, +sign")
-        ax.plot(np.sqrt(s), (dilepton_productionRate_L+2*(dilepton_productionRate_T_omega_2))/3,label="(L+2T)/3, omega, -sign")
+        ax.plot(np.sqrt(s), dilepton_productionRate_T,label="Transverse")
+        ax.plot(np.sqrt(s), (dilepton_productionRate_L+2*(dilepton_productionRate_T))/3,label="Average")
+        ax.plot(np.sqrt(s), (dilepton_productionRate_L_noMix_save+2*dilepton_productionRate_T_noMix_save)/3, label="w/o V-A mixing")
+        ax.legend()
+        ax.set_xticks(np.linspace(0.,1.75,43),minor=True)
+        ax.grid(which="major",alpha=0.5)
+        ax.grid(which="minor",alpha=0.2)
+        ax.set_xlabel(r"$M[{\rm{GeV}}]$")
+        ax.set_ylabel(r"${\rm{Im}}G_\phi[{\rm{GeV}}^{2}]$")
+        plt.yscale('log')
+        plt.show()
+
+        rate = 1e-3
+
+        fig, ax = plt.subplots()
+        ax.plot(np.sqrt(s), bkg_L*rate,label="bkg?")
+        ax.plot(np.sqrt(s), (dilepton_productionRate_L+2*(dilepton_productionRate_T))/3,label="spectral Fx")
+        ax.legend()
+        ax.set_xticks(np.linspace(0.,1.75,43),minor=True)
+        ax.grid(which="major",alpha=0.5)
+        ax.grid(which="minor",alpha=0.2)
+        ax.set_xlabel(r"$M[{\rm{GeV}}]$")
+        ax.set_ylabel(r"${\rm{Im}}G_\phi[{\rm{GeV}}^{2}]$")
+        plt.yscale('log')
+        plt.show()
+
+        fig, ax = plt.subplots()
+        #ax.plot(np.sqrt(s), dilepton_productionRate_L-bkg_L*rate,label="Longitudinal")
+        #ax.plot(np.sqrt(s), dilepton_productionRate_T-bkg_T*rate,label="Transverse")
+        ax.plot(np.sqrt(s), (dilepton_productionRate_L+2*(dilepton_productionRate_T))/3-bkg_L*rate,label="Average")
+        ax.legend()
+        ax.set_xticks(np.linspace(0.,1.75,43),minor=True)
+        ax.grid(which="major",alpha=0.5)
+        ax.grid(which="minor",alpha=0.2)
+        ax.set_xlabel(r"$M[{\rm{GeV}}]$")
+        ax.set_ylabel(r"${\rm{Im}}G_\phi[{\rm{GeV}}^{2}]$")
+        plt.yscale('log')
+        #ax.set_xlim(0.75,1.5)
+        plt.show()
+
+
+        spectralFunction_L_atP = dilepton_productionRate_L/(2*p_0_L)
+        spectralFunction_T_atP = dilepton_productionRate_T/(2*p_0_T)
+        fig, ax = plt.subplots()
+        ax.plot(np.sqrt(s), spectralFunction_L_atP,label="Longitudinal")
+        ax.plot(np.sqrt(s), spectralFunction_T_atP,label="Transverse")
+        ax.plot(np.sqrt(s), (spectralFunction_L_atP+2*(spectralFunction_T_atP))/3,label="Average")
         ax.legend()
         ax.set_xticks(np.linspace(0.,1.75,43),minor=True)
         ax.grid(which="major",alpha=0.5)
@@ -226,17 +276,11 @@ for p_MeV in range(1,2000): #Integrate dilepton production rate by momentum from
         plt.show()
 
 fig, ax = plt.subplots()
-ax.plot(np.sqrt(s), spectralFunction_vac, label="vacuum")
+#ax.plot(np.sqrt(s), spectralFunction_vac, label="vacuum")
 ax.plot(np.sqrt(s), (spectralFunction_L_noMix+2*spectralFunction_T_noMix),label="w/o V-A mixing")
-ax.plot(np.sqrt(s), spectralFunction_L,label="Longitudinal")
-ax.plot(np.sqrt(s), spectralFunction_T,label="Transverse, +sign")
-ax.plot(np.sqrt(s), spectralFunction_T_2,label="Transverse, -sign")
-ax.plot(np.sqrt(s), (spectralFunction_L+2*(spectralFunction_T))/3,label="Average, +sign")
-ax.plot(np.sqrt(s), (spectralFunction_L+2*(spectralFunction_T_2))/3,label="Average, -sign")
-ax.plot(np.sqrt(s), spectralFunction_T_omega,label="Transverse, omega, +sign")
-ax.plot(np.sqrt(s), spectralFunction_T_omega_2,label="Transverse, omega, -sign")
-ax.plot(np.sqrt(s), (spectralFunction_L+2*(spectralFunction_T_omega))/3,label="(L+2T)/3, omega, +sign")
-ax.plot(np.sqrt(s), (spectralFunction_L+2*(spectralFunction_T_omega_2))/3,label="(L+2T)/3, omega, -sign")
+#ax.plot(np.sqrt(s), spectralFunction_L,label="Longitudinal")
+#ax.plot(np.sqrt(s), spectralFunction_T,label="Transverse")
+ax.plot(np.sqrt(s), (spectralFunction_L+2*(spectralFunction_T))/3,label="Average")
 ax.legend()
 ax.set_xticks(np.linspace(0.,1.75,43),minor=True)
 ax.grid(which="major",alpha=0.5)
